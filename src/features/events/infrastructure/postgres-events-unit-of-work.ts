@@ -8,6 +8,7 @@ import type {
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import type { EventEnvelope } from '#/shared-kernel/event-envelope.ts'
 import { Result, type Failure } from '#/shared-kernel/result.ts'
+import { noTelemetry, type Telemetry } from '#/shared-kernel/telemetry.ts'
 import { PostgresEventRepository } from './repository/postgres-event-repository.ts'
 
 // A normal return from Bun's transaction callback commits, including a Failure.
@@ -17,16 +18,42 @@ class RollbackResult {
 }
 
 export class PostgresOutboxWriter implements OutboxWriter {
-  constructor(private readonly tx: SQL) {}
+  constructor(
+    private readonly tx: SQL,
+    private readonly telemetry: Telemetry = noTelemetry,
+  ) {}
 
-  async append(envelope: EventEnvelope<DomainEvent>): Promise<void> {
-    await this.tx`INSERT INTO events.outbox (message_id, envelope)
-      VALUES (${envelope.messageId}, ${envelope}::jsonb)`
+  append(envelope: EventEnvelope<DomainEvent>): Promise<void> {
+    const { operations } = this.telemetry
+    return operations.run(
+      'send events.outbox',
+      async () => {
+        const traceContext = operations.carrier()
+        const traced = Object.keys(traceContext).length
+          ? { ...envelope, traceContext }
+          : envelope
+        await this.tx`INSERT INTO events.outbox (message_id, envelope)
+          VALUES (${envelope.messageId}, ${traced}::jsonb)`
+      },
+      {
+        kind: 'producer',
+        attributes: {
+          'messaging.system.name': 'postgres_outbox',
+          'messaging.operation.name': 'send',
+          'messaging.operation.type': 'send',
+          'messaging.destination.name': 'events.outbox',
+          'messaging.message.id': envelope.messageId,
+        },
+      },
+    )
   }
 }
 
 export class PostgresEventsUnitOfWork implements EventsUnitOfWork {
-  constructor(private readonly sql: SQL) {}
+  constructor(
+    private readonly sql: SQL,
+    private readonly telemetry: Telemetry = noTelemetry,
+  ) {}
 
   async run<Value>(
     work: (scope: {
@@ -38,7 +65,7 @@ export class PostgresEventsUnitOfWork implements EventsUnitOfWork {
       return await this.sql.begin(async (tx) => {
         const result = await work({
           events: new PostgresEventRepository(tx, true),
-          outbox: new PostgresOutboxWriter(tx),
+          outbox: new PostgresOutboxWriter(tx, this.telemetry),
         })
         if (Result.isFailure(result)) {
           throw new RollbackResult(result)

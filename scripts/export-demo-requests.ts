@@ -82,3 +82,5 @@ await Bun.write(
   `${JSON.stringify(collection, null, 2)}\n`,
 )
 console.log('Generated demo/yaak.postman_collection.json')
+
+export {}

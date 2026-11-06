@@ -9,9 +9,10 @@ import type { EventInput } from '#/features/events/domain/event.ts'
 import { UserId, VenueId } from '#/features/events/domain/ids.ts'
 import { InMemoryEventRepository } from '#/features/events/infrastructure/repository/in-memory-event-repository.ts'
 import { Result } from '#/shared-kernel/result.ts'
+import type { Telemetry } from '#/shared-kernel/telemetry.ts'
 
 // Each scenario owns its repository and clock. No HTTP app or external storage.
-export function anApplication() {
+export function anApplication(options: { telemetry?: Telemetry } = {}) {
   const alice = UserId.make()
   const bob = UserId.make()
   const venueId = VenueId.make()
@@ -22,6 +23,7 @@ export function anApplication() {
   })
   const notifications: EventEnvelope<DomainEvent>[] = []
   const container = createContainer({
+    telemetry: options.telemetry,
     applicationSecretKey: 'test-application-secret-key-not-for-production',
     repository,
     identityRepository: new InMemoryIdentityRepository(new Set([alice, bob])),

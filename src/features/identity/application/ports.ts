@@ -1,4 +1,4 @@
-import { Option } from "#/shared-kernel/option.ts"
+import { Option } from '#/shared-kernel/option.ts'
 
 export interface Session {
   tokenHash: string

@@ -1,5 +1,5 @@
 import type { IdentityRepository, Session } from '../application/ports.ts'
-import { Option } from "#/shared-kernel/option.ts"
+import { Option } from '#/shared-kernel/option.ts'
 // import { setInterval } from 'node:timers';
 
 export class InMemoryIdentityRepository implements IdentityRepository {
@@ -27,7 +27,9 @@ export class InMemoryIdentityRepository implements IdentityRepository {
   }
   async findSession(tokenHash: string, now: Date): Promise<Option<Session>> {
     const session = this.sessions.get(tokenHash)
-    return session && session.expiresAt > now ? Option.some(session) : Option.none()
+    return session && session.expiresAt > now
+      ? Option.some(session)
+      : Option.none()
   }
   async revokeSession(tokenHash: string, _now: Date) {
     this.sessions.delete(tokenHash)

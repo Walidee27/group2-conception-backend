@@ -12,6 +12,7 @@ import {
 } from '#/features/events/infrastructure/event-entity.ts'
 import { matchesEventFilter } from '#/features/events/infrastructure/repository/event-predicates.ts'
 import { Option } from '#/shared-kernel/option.ts'
+import { noTelemetry, type Telemetry } from '#/shared-kernel/telemetry.ts'
 
 const snapshot = v.pipe(
   v.string(),
@@ -34,10 +35,26 @@ export class ValkeyEventReadRepository implements EventProjectionRepository {
   constructor(
     private readonly client: RedisClient,
     private readonly key = 'events:read-model:v1',
+    private readonly telemetry: Telemetry = noTelemetry,
   ) {}
 
+  private observed<Value>(
+    operation: 'GET' | 'SET',
+    command: () => Promise<Value>,
+  ): Promise<Value> {
+    return this.telemetry.operations.run(`${operation} ${this.key}`, command, {
+      kind: 'client',
+      attributes: {
+        'db.system.name': 'valkey',
+        'db.operation.name': operation,
+      },
+    })
+  }
+
   async replaceEvents(events: readonly Event[]): Promise<void> {
-    await this.client.set(this.key, JSON.stringify(events.map(eventToEntity)))
+    await this.observed('SET', () =>
+      this.client.set(this.key, JSON.stringify(events.map(eventToEntity))),
+    )
   }
 
   async listEvents(filter: EventFilter) {
@@ -57,7 +74,7 @@ export class ValkeyEventReadRepository implements EventProjectionRepository {
   }
 
   private async read(): Promise<Event[]> {
-    const raw = await this.client.get(this.key)
+    const raw = await this.observed('GET', () => this.client.get(this.key))
     if (raw === null) {
       return []
     }

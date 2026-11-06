@@ -1,3 +1,4 @@
+import { Option } from '#/shared-kernel/option.ts'
 import { expect, test } from 'bun:test'
 import { createHmac } from 'node:crypto'
 import * as v from 'valibot'
@@ -69,15 +70,17 @@ test('session creation persists the HMAC-SHA-256 digest rather than the bearer t
       const tokenHash = createHmac('sha256', applicationSecretKey)
         .update(session.token)
         .digest('hex')
-      expect(await repository.findSession(tokenHash, createdAt)).toEqual({
-        tokenHash,
-        userId: alice,
-        createdAt,
-        expiresAt: new Date('2030-01-02T00:00:00Z'),
-      })
-      expect(
-        await repository.findSession(session.token, createdAt),
-      ).toBeUndefined()
+      expect(await repository.findSession(tokenHash, createdAt)).toEqual(
+        Option.some({
+          tokenHash,
+          userId: alice,
+          createdAt,
+          expiresAt: new Date('2030-01-02T00:00:00Z'),
+        }),
+      )
+      expect(await repository.findSession(session.token, createdAt)).toEqual(
+        Option.none(),
+      )
     }))
 
 test('another service with the same application secret key can resolve a session', () =>

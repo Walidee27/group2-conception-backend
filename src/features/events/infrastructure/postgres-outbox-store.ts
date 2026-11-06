@@ -27,6 +27,7 @@ const envelopeSchema = v.object({
   messageId: v.string(),
   occurredAt: date,
   version: v.literal(1),
+  traceContext: v.optional(v.record(v.string(), v.string())),
   event: v.variant('_tag', [
     v.object({ _tag: v.literal('EventCreated'), content: eventDetails }),
     v.object({ _tag: v.literal('EventUpdated'), content: eventDetails }),
@@ -40,6 +41,20 @@ const envelopeSchema = v.object({
 
 export class PostgresOutboxStore implements OutboxStore {
   constructor(private readonly sql: SQL) {}
+
+  async pendingCount(): Promise<number> {
+    const [row] = await this.sql<{ pending: number }[]>`
+      SELECT count(*)::int AS pending FROM events.outbox
+      WHERE published_at IS NULL`
+    return row?.pending ?? 0
+  }
+
+  async oldestPendingAge(): Promise<number> {
+    const [row] = await this.sql<{ age: number }[]>`
+      SELECT COALESCE(EXTRACT(EPOCH FROM now() - (envelope->>'occurredAt')::timestamptz), 0)::float8 AS age
+      FROM events.outbox WHERE published_at IS NULL ORDER BY sequence LIMIT 1`
+    return row?.age ?? 0
+  }
 
   async deliverNext(
     deliver: (envelope: EventEnvelope<DomainEvent>) => Promise<void>,

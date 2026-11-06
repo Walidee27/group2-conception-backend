@@ -29,7 +29,7 @@ test('serves OpenAPI JSON and Scalar without requiring a demo identity', async (
   const spec = await app.request('/openapi.json')
   expect(spec.status).toBe(200)
   expect(spec.headers.get('content-type')).toContain('application/json')
-  const document = await spec.json()
+  const document = (await spec.json()) as any
   expect(document.openapi).toBe('3.1.0')
   expect(document.info.title).toBe('Events and notifications API')
   expect(document.components.securitySchemes.BearerSession).toMatchObject({

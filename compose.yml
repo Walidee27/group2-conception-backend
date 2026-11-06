@@ -40,6 +40,27 @@ services:
       postgres:
         condition: service_healthy
 
+  otel-desktop-viewer:
+    image: ghcr.io/ctrlspice/otel-desktop-viewer:v0.4.1
+    command:
+      - --host
+      - 0.0.0.0
+      - --grpc
+      - '4317'
+      - --http
+      - '4318'
+      - --browser-port
+      - '8000'
+      - --db
+      - /data/telemetry.duckdb
+    ports:
+      - '127.0.0.1:8000:8000' # viewer UI
+      - '127.0.0.1:4317:4317' # OTLP/gRPC
+      - '127.0.0.1:4318:4318' # OTLP/HTTP
+    volumes:
+      - telemetry_data:/data
+
 volumes:
   postgres_data:
   valkey_data:
+  telemetry_data:

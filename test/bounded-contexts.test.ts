@@ -17,9 +17,28 @@ test('shared kernel does not depend on a feature or platform adapter', async () 
   }
 })
 
+test('le domaine et l’application ignorent OpenTelemetry', async () => {
+  const glob = new Bun.Glob('**/*.ts')
+  for await (const file of glob.scan('src')) {
+    const isApplicationOrDomain = /\/(application|domain)\//.test(file)
+    if (!isApplicationOrDomain && !file.startsWith('shared-kernel/')) {
+      continue
+    }
+    const source = await Bun.file(`src/${file}`).text()
+    expect(source).not.toContain('@opentelemetry/')
+    expect(source).not.toContain('/observability/')
+  }
+})
+
 test('technical modules live under platform, not a top-level adapter layer', () => {
   expect(existsSync('src/infrastructure')).toBe(false)
-  for (const module of ['di', 'http', 'messaging', 'rate-limit']) {
+  for (const module of [
+    'di',
+    'http',
+    'messaging',
+    'observability',
+    'rate-limit',
+  ]) {
     expect(existsSync(`src/platform/${module}`)).toBe(true)
   }
 })

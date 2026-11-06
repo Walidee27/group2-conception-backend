@@ -43,7 +43,7 @@ export class InMemoryNotificationRepository implements NotificationRepository {
   ) {
     const key = `${recipientId}:${messageId}`
     if (this.processed.has(key)) {
-      return
+      return false
     }
     if (Option.isSome(notification)) {
       this.notifications.set(
@@ -52,6 +52,7 @@ export class InMemoryNotificationRepository implements NotificationRepository {
       )
     }
     this.processed.add(key)
+    return true
   }
 
   async list(recipientId: string) {

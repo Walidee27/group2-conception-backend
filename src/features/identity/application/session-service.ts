@@ -11,7 +11,7 @@ export class SessionService {
     private readonly repository: IdentityRepository,
     private readonly applicationSecretKey: string,
     private readonly now: () => Date = () => new Date(),
-  ) { }
+  ) {}
 
   async create(userId: string) {
     if (!(await this.repository.userExists(userId))) {
@@ -37,7 +37,10 @@ export class SessionService {
     if (!tokenPattern.test(token)) {
       return undefined
     }
-    const session = await this.repository.findSession(this.hash(token), this.now());
+    const session = await this.repository.findSession(
+      this.hash(token),
+      this.now(),
+    )
     if (Option.isSome(session)) {
       return session.value.userId
     }

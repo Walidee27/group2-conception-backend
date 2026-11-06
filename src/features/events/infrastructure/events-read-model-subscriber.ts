@@ -4,6 +4,7 @@ import type {
 } from '#/features/events/application/ports.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
 import type { EventBus } from '#/shared-kernel/event-bus.ts'
+import { noTelemetry, type Telemetry } from '#/shared-kernel/telemetry.ts'
 
 // Reload committed state rather than replaying potentially stale event payloads.
 // Queue refreshes so concurrent publications cannot overwrite a newer snapshot
@@ -11,13 +12,26 @@ import type { EventBus } from '#/shared-kernel/event-bus.ts'
 export function createEventsReadModelSubscriber(
   source: EventReadRepository,
   projection: EventProjectionRepository,
+  telemetry: Telemetry = noTelemetry,
 ) {
   let pending = Promise.resolve()
   const refresh = () => {
-    const next = pending.then(async () => {
-      const events = await source.listEvents({})
-      await projection.replaceEvents(events)
-    })
+    const next = pending.then(() =>
+      telemetry.operations.run('refresh events read model', async () => {
+        try {
+          const events = await source.listEvents({})
+          await projection.replaceEvents(events)
+          telemetry.metrics.increment('events.read_model.refreshes', {
+            outcome: 'success',
+          })
+        } catch (error) {
+          telemetry.metrics.increment('events.read_model.refreshes', {
+            outcome: 'failed',
+          })
+          throw error
+        }
+      }),
+    )
     pending = next.catch(() => {})
     return next
   }

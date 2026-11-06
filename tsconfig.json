@@ -1,5 +1,15 @@
 {
-  "extends": "../../../../tsconfig.json",
-  "compilerOptions": { "types": ["bun"], "paths": { "#/*": ["./src/*"] } },
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "types": ["bun"],
+    "paths": { "#/*": ["./src/*"] }
+  },
   "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
 }

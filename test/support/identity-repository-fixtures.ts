@@ -27,7 +27,7 @@ async function inMemory(): Promise<IdentityRepositoryFixture> {
     async reset() {
       repository = new InMemoryIdentityRepository(new Set([alice, bob]))
     },
-    async close() { },
+    async close() {},
   }
 }
 
@@ -62,7 +62,8 @@ async function postgres(): Promise<IdentityRepositoryFixture> {
       await Bun.file(new URL('../../sql/_schema.sql', import.meta.url)).text(),
     )
     await sql`INSERT INTO identity.users (id, name, email) VALUES
-      (${alice}, 'Alice', 'alice@example.com'), (${bob}, 'Bob', 'bob@example.com')`
+      (${alice}, 'Alice', 'alice@identity.test'), (${bob}, 'Bob', 'bob@identity.test')
+      ON CONFLICT DO NOTHING`
     return {
       repository: new PostgresIdentityRepository(sql),
       peer: new PostgresIdentityRepository(peer),

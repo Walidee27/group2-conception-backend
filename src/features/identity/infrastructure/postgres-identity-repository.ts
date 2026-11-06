@@ -3,7 +3,7 @@ import { Option } from '#/shared-kernel/option.ts'
 import type { IdentityRepository, Session } from '../application/ports.ts'
 
 export class PostgresIdentityRepository implements IdentityRepository {
-  constructor(private readonly sql: SQL) { }
+  constructor(private readonly sql: SQL) {}
   async userExists(id: string) {
     const [row] = await this.sql<
       { found: boolean }[]
@@ -16,10 +16,7 @@ export class PostgresIdentityRepository implements IdentityRepository {
       .sql`INSERT INTO identity.sessions (token_hash, user_id, created_at, expires_at)
       VALUES (${session.tokenHash}, ${session.userId}, ${session.createdAt}, ${session.expiresAt})`
   }
-  async findSession(
-    tokenHash: string,
-    now: Date,
-  ): Promise<Option<Session>> {
+  async findSession(tokenHash: string, now: Date): Promise<Option<Session>> {
     const [row] = await this.sql<
       {
         token_hash: string

@@ -13,7 +13,7 @@ export interface NotificationRepository {
     messageId: string,
     recipientId: string,
     notification: Option<Notification>,
-  ): Promise<void>
+  ): Promise<boolean>
   list(recipientId: string): Promise<Notification[]>
   markRead(
     recipientId: string,

@@ -1,7 +1,7 @@
 import { InvalidInput } from './errors.ts'
 import { Result } from './result.ts'
 
-export class InvalidDuration extends InvalidInput { }
+export class InvalidDuration extends InvalidInput {}
 
 /** An immutable, non-negative, whole-millisecond duration. */
 export class Duration {

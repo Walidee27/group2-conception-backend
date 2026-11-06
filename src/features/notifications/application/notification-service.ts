@@ -6,6 +6,7 @@ import {
   type Recipient,
 } from '#/features/notifications/domain/notification.ts'
 import { Option } from '#/shared-kernel/option.ts'
+import { noTelemetry, type Telemetry } from '#/shared-kernel/telemetry.ts'
 
 // No Events imports, entities, repositories or business rules.
 export class NotificationService {
@@ -13,20 +14,31 @@ export class NotificationService {
     private readonly repository: NotificationRepository,
     private readonly nextId: () => string,
     private readonly now: () => Date,
+    private readonly telemetry: Telemetry = noTelemetry,
   ) {}
 
   async receive(notice: BookingNotice): Promise<void> {
     const recipient = await this.repository.findRecipient(notice.bookingUserRef)
     // Enrollment belongs to Notifications. A booking does not create a recipient.
     if (Option.isNone(recipient)) {
+      this.count('unknown_recipient')
       return
     }
     const notification = this.notificationFor(notice, recipient.value)
-    await this.repository.recordOnce(
+    const recorded = await this.repository.recordOnce(
       notice.sourceMessageId,
       recipient.value.id,
       notification,
     )
+    if (!recorded) {
+      this.count('duplicate')
+      return
+    }
+    this.count(Option.isSome(notification) ? 'delivered' : 'suppressed')
+  }
+
+  private count(outcome: string) {
+    this.telemetry.metrics.increment('notifications.deliveries', { outcome })
   }
 
   recipient(bookingUserRef: string) {

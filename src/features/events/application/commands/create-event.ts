@@ -1,3 +1,5 @@
+import { observedCommand } from '#/features/events/application/observed-command.ts'
+import { noTelemetry, type Telemetry } from '#/shared-kernel/telemetry.ts'
 import {
   Event,
   EventData,
@@ -24,9 +26,16 @@ export class CreateEventUseCase implements CommandHandler<
     private readonly unitOfWork: EventsUnitOfWork,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-  ) { }
+    private readonly telemetry: Telemetry = noTelemetry,
+  ) {}
 
-  async execute(input: EventInput) {
+  execute(input: EventInput) {
+    return observedCommand(this.telemetry, 'CreateEvent', () =>
+      this.perform(input),
+    )
+  }
+
+  private async perform(input: EventInput) {
     const result = Event.create({ ...input, id: this.ids.next<EventId>() })
     const now = this.clock.now()
     if (Result.isFailure(result)) {

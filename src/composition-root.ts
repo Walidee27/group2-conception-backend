@@ -42,6 +42,8 @@ import { createRecipientMiddleware } from '#/features/notifications/controllers/
 import { notificationRoutes } from '#/features/notifications/routes/notification-routes.ts'
 import type { EventBus } from '#/shared-kernel/event-bus.ts'
 import { InMemoryEventBus } from '#/platform/messaging/in-memory-event-bus.ts'
+import { observabilityMiddleware } from '#/platform/observability/observability-middleware.ts'
+import { noTelemetry, type Telemetry } from '#/shared-kernel/telemetry.ts'
 import { createEventsReadModelSubscriber } from '#/features/events/infrastructure/events-read-model-subscriber.ts'
 
 import {
@@ -62,11 +64,13 @@ export interface ContainerOptions {
   eventBus?: EventBus<DomainEvent>
   notificationLogger?: NotificationLogger
   notificationRepository?: NotificationRepository
+  telemetry?: Telemetry
 }
 
 // Only the composition root resolves tokens. Application code receives ordinary dependencies.
 export function createContainer(options: ContainerOptions): Container {
   const container = new Container()
+  const telemetry = options.telemetry ?? noTelemetry
   container
     .singleton(TOKEN.EventRepository, () => options.repository)
     .singleton(TOKEN.EventsUnitOfWork, () => {
@@ -89,7 +93,12 @@ export function createContainer(options: ContainerOptions): Container {
       if (!store) {
         throw new Error('An OutboxStore is required')
       }
-      return new OutboxDispatcher(store, c.resolve(TOKEN.EventBus))
+      return new OutboxDispatcher(
+        store,
+        c.resolve(TOKEN.EventBus),
+        telemetry,
+        () => c.resolve(TOKEN.Clock).now(),
+      )
     })
     .singleton(
       TOKEN.SessionService,
@@ -111,6 +120,7 @@ export function createContainer(options: ContainerOptions): Container {
       return createEventsReadModelSubscriber(
         options.repository,
         options.readRepository,
+        telemetry,
       ).subscribe(c.resolve(TOKEN.EventBus))
     })
     .singleton(TOKEN.Clock, () => options.clock ?? { now: () => new Date() })
@@ -131,6 +141,7 @@ export function createContainer(options: ContainerOptions): Container {
           c.resolve(TOKEN.NotificationRepository),
           () => c.resolve(TOKEN.IdGenerator).next<string>(),
           () => c.resolve(TOKEN.Clock).now(),
+          telemetry,
         ),
     )
     .singleton(TOKEN.NotificationSubscription, (c) => {
@@ -138,7 +149,12 @@ export function createContainer(options: ContainerOptions): Container {
       const bus = c.resolve(TOKEN.EventBus)
       const listener = eventsSubscriber(
         notifications,
-        options.notificationLogger ?? console,
+        options.notificationLogger ?? {
+          log: (message, envelope) =>
+            telemetry.logger.info(message, {
+              'messaging.message.id': envelope.messageId,
+            }),
+        },
       )
       const unsubscribe = [
         bus.subscribe('EventCreated', listener),
@@ -163,6 +179,7 @@ export function createContainer(options: ContainerOptions): Container {
           c.resolve(TOKEN.EventsUnitOfWork),
           c.resolve(TOKEN.Clock),
           c.resolve(TOKEN.IdGenerator),
+          telemetry,
         ),
     )
     .singleton(
@@ -172,6 +189,7 @@ export function createContainer(options: ContainerOptions): Container {
           c.resolve(TOKEN.EventsUnitOfWork),
           c.resolve(TOKEN.Clock),
           c.resolve(TOKEN.IdGenerator),
+          telemetry,
         ),
     )
     .singleton(
@@ -181,6 +199,7 @@ export function createContainer(options: ContainerOptions): Container {
           c.resolve(TOKEN.EventsUnitOfWork),
           c.resolve(TOKEN.Clock),
           c.resolve(TOKEN.IdGenerator),
+          telemetry,
         ),
     )
     .singleton(
@@ -190,6 +209,7 @@ export function createContainer(options: ContainerOptions): Container {
           c.resolve(TOKEN.EventsUnitOfWork),
           c.resolve(TOKEN.Clock),
           c.resolve(TOKEN.IdGenerator),
+          telemetry,
         ),
     )
     .singleton(
@@ -241,6 +261,12 @@ export function createContainer(options: ContainerOptions): Container {
       const app = createApp(
         c.resolve(TOKEN.EventCommandController),
         c.resolve(TOKEN.EventQueryController),
+        observabilityMiddleware(telemetry.metrics),
+        (error) =>
+          telemetry.logger.error(
+            'Erreur inattendue pendant une requête HTTP',
+            error,
+          ),
         sessionMiddleware(c.resolve(TOKEN.SessionService)),
         ...middlewares,
       )

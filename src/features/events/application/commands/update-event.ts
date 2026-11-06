@@ -1,3 +1,5 @@
+import { observedCommand } from '#/features/events/application/observed-command.ts'
+import { noTelemetry, type Telemetry } from '#/shared-kernel/telemetry.ts'
 import type { CommandHandler } from '#/shared-kernel/command-handler.ts'
 import { Result } from '#/shared-kernel/result.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
@@ -28,9 +30,16 @@ export class UpdateEventUseCase implements CommandHandler<
     private readonly unitOfWork: EventsUnitOfWork,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly telemetry: Telemetry = noTelemetry,
   ) {}
 
-  async execute({ id, patch }: UpdateEventCommand) {
+  execute(command: UpdateEventCommand) {
+    return observedCommand(this.telemetry, 'UpdateEvent', () =>
+      this.perform(command),
+    )
+  }
+
+  private async perform({ id, patch }: UpdateEventCommand) {
     return this.unitOfWork.run(async ({ events, outbox }) => {
       const result = await events.updateEvent(id, (event, seats) =>
         event.update(patch, seats, this.clock.now()),

@@ -63,6 +63,7 @@ export async function startPostgresOutboxDatabase() {
     throw cause
   }
   return {
+    url,
     sql,
     peer,
     close,

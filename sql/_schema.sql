@@ -1,4 +1,4 @@
--- Current database schema without demo seed data.
+-- Current database schema and demo seed data.
 -- Keep aligned with init.sql. events.users references identity.users.
 BEGIN;
 
@@ -54,6 +54,14 @@ CREATE TABLE IF NOT EXISTS events.reservations (
 CREATE INDEX IF NOT EXISTS reservations_event_id_idx ON events.reservations(event_id);
 CREATE INDEX IF NOT EXISTS reservations_user_id_idx ON events.reservations(user_id);
 
+CREATE TABLE IF NOT EXISTS events.outbox (
+  sequence bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  message_id uuid NOT NULL UNIQUE,
+  envelope jsonb NOT NULL,
+  published_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS outbox_pending_idx ON events.outbox(sequence) WHERE published_at IS NULL;
+
 -- Notifications stores booking references as text, without foreign keys to Events.
 CREATE TABLE IF NOT EXISTS notifications.recipients (
   id uuid PRIMARY KEY,
@@ -79,5 +87,23 @@ CREATE TABLE IF NOT EXISTS notifications.inbox (
   UNIQUE (recipient_id, source_message_id)
 );
 CREATE INDEX IF NOT EXISTS inbox_recipient_created_idx ON notifications.inbox(recipient_id, created_at, id);
+
+-- Demo seed data. Safe to rerun without overwriting existing records.
+INSERT INTO identity.users (id, name, email) VALUES
+  ('01900000-0000-7000-8000-000000000001', 'Alice', 'alice@example.com'),
+  ('01900000-0000-7000-8000-000000000002', 'Bob', 'bob@example.com')
+ON CONFLICT DO NOTHING;
+INSERT INTO events.users (id) SELECT id FROM identity.users ON CONFLICT DO NOTHING;
+INSERT INTO events.venues (id, name, address) VALUES
+  ('01900000-0000-7000-8000-000000000003', 'Game room', '12 rue du Jeu, Paris')
+ON CONFLICT DO NOTHING;
+INSERT INTO events.events (id, title, category, starts_at, capacity, venue_id) VALUES
+  ('01900000-0000-7000-8000-000000000004', 'Board game night', 'gaming', '2099-06-15T18:00:00Z', 20,
+   '01900000-0000-7000-8000-000000000003')
+ON CONFLICT DO NOTHING;
+INSERT INTO notifications.recipients (id, booking_user_ref) VALUES
+  ('01900000-0000-7000-8000-000000000101', '01900000-0000-7000-8000-000000000001'),
+  ('01900000-0000-7000-8000-000000000102', '01900000-0000-7000-8000-000000000002')
+ON CONFLICT DO NOTHING;
 
 COMMIT;

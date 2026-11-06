@@ -11,10 +11,13 @@ import { presentError } from '#/features/events/presentation/event-presenter.ts'
 export function createApp(
   commands: EventCommandController,
   queries: EventQueryController,
+  observe: MiddlewareHandler,
+  reportUnknown: (error: Error) => void,
   authenticate: MiddlewareHandler,
   ...middlewares: MiddlewareHandler[]
 ) {
   const app = new Hono()
+  app.use('*', observe)
   app.use('*', authenticate)
   for (const middleware of middlewares) {
     app.use('*', middleware)
@@ -31,7 +34,11 @@ export function createApp(
     if (error instanceof HTTPException) {
       return error.getResponse()
     }
-    console.error(error)
+    try {
+      reportUnknown(error)
+    } catch {
+      // Reporting is best-effort and must not replace the stable HTTP contract.
+    }
     return c.json(
       presentError('INTERNAL_ERROR', 'An unexpected error occurred'),
       HttpStatusCode.InternalServerError,

@@ -4,4 +4,5 @@ export interface EventEnvelope<Event> {
   readonly occurredAt: Date
   readonly version: 1
   readonly event: Event
+  readonly traceContext?: Readonly<Record<string, string>>
 }

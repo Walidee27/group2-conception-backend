@@ -22,5 +22,5 @@ test('a reservation commits without contacting an unavailable bus', () =>
     .then(async (result, { repository, alice, drain }) => {
       expect(Result.isSuccess(result)).toBe(true)
       expect(await repository.listReservations(alice)).toHaveLength(1)
-      expect(await drain()).rejects.toThrow('bus unavailable')
+      await expect(drain()).rejects.toThrow('bus unavailable')
     }))

@@ -39,17 +39,21 @@ export class PostgresNotificationRepository implements NotificationRepository {
     recipientId: string,
     notification: Option<Notification>,
   ) {
-    await this.sql.begin(async (tx) => {
+    return this.sql.begin(async (tx) => {
       const inserted =
         await tx`INSERT INTO notifications.processed_messages (recipient_id, message_id)
         VALUES (${recipientId}, ${messageId}) ON CONFLICT DO NOTHING RETURNING message_id`
-      if (!inserted.length || Option.isNone(notification)) {
-        return
+      if (!inserted.length) {
+        return false
+      }
+      if (Option.isNone(notification)) {
+        return true
       }
       const n = notification.value
       await tx`INSERT INTO notifications.inbox
         (id, recipient_id, source_message_id, booking_ref, subject, body, created_at)
         VALUES (${n.id}, ${n.recipientId}, ${n.sourceMessageId}, ${n.bookingRef}, ${n.subject}, ${n.body}, ${n.createdAt})`
+      return true
     })
   }
 

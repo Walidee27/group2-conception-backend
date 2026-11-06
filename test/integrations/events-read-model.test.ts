@@ -131,7 +131,7 @@ test('refreshes are serialized, recover after failure, and ignore stale message 
     fixture.repository,
     projection,
   )
-  expect(await subscriber.refresh()).rejects.toThrow('Valkey unavailable')
+  await expect(subscriber.refresh()).rejects.toThrow('Valkey unavailable')
   await Promise.all([subscriber.refresh(), subscriber.refresh()])
   expect(saved).toHaveLength(2)
   const bus = new InMemoryEventBus<DomainEvent>()

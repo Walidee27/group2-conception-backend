@@ -1,3 +1,5 @@
+import { observedCommand } from '#/features/events/application/observed-command.ts'
+import { noTelemetry, type Telemetry } from '#/shared-kernel/telemetry.ts'
 import type { CommandHandler } from '#/shared-kernel/command-handler.ts'
 import type { ApplicationError } from '#/features/events/application/ports.ts'
 import type { DomainEvent } from '#/features/events/contracts/events.ts'
@@ -33,9 +35,16 @@ export class ReserveEventUseCase implements CommandHandler<
     private readonly unitOfWork: EventsUnitOfWork,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly telemetry: Telemetry = noTelemetry,
   ) {}
 
-  async execute(input: ReserveEventCommand) {
+  execute(input: ReserveEventCommand) {
+    return observedCommand(this.telemetry, 'ReserveEvent', () =>
+      this.perform(input),
+    )
+  }
+
+  private async perform(input: ReserveEventCommand) {
     return this.unitOfWork.run(async ({ events, outbox }) => {
       const result = await events.reserve(input.eventId, (event, seats) => {
         const now = this.clock.now()
